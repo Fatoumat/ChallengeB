@@ -189,8 +189,8 @@ write.csv(x = prediction, file = "predictions.csv", na = "NA", quote = FALSE, ro
 
 ******
 
-
 ```{r package & data without ID, include=FALSE}
+
 install.packages("randomForest")
 library(randomForest)
 train <- train[,-c(1,27)]
@@ -204,33 +204,25 @@ names(train)[40]<-"R1stFlrSF"
 names(train)[41]<-"R2ndFlrSF"
 names(train)[65]<-"R3SsnPorch"
 
-
-
-
 library(dplyr)
 train=train %>% mutate_if(is.character, as.factor)
 
 Fit <- randomForest(SalePrice ~ .,  data = train)
 print(Fit)
-```
 
-Random forest technique is a machin learning algorithm, which is efficient to find the relationship between dependent and independent variables. Random Forest classify independent variables according to their relationship with the dependent variable.
-
-
-##Step 2:
-
-```{r Step 2, include=FALSE}
+```{r step2, echo=FALSE}
 
 remove.vars <- test %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 100) %>% select(feature) %>% unlist
 
 test <- test %>% select(- one_of(remove.vars))
 
 
-
-
 test %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 0)
 
 test <- test %>% filter(is.na(GarageType) == FALSE, is.na(MasVnrType) == FALSE, is.na(BsmtFinType2) == FALSE, is.na(BsmtExposure) == FALSE, is.na(Electrical) == FALSE)
+
+which(colnames(test) == "ExterCond")
+
 
 test <- test[,-c(1,27)]
 
@@ -242,6 +234,7 @@ names(test)[65]<-"R3SsnPorch"
 names(test)[41]<-"R2ndFlrSF"
 names(test)[40]<-"R1stFlrSF"
 
+test=test %>% mutate_if(is.character, as.factor)
 
 levels(test$MSZoning)<-levels(train$MSZoning)
 levels(test$Street)<-levels(train$Street)
@@ -249,6 +242,7 @@ levels(test$LotShape)<-levels(train$LotShape)
 levels(test$LandContour)<-levels(train$LandContour)
 levels(test$LandSlope)<-levels(train$LandSlope)
 levels(test$LotConfig)<-levels(train$LotConfig)
+
 levels(test$Utilities)<-levels(train$Utilities)
 levels(test$Neighborhood)<-levels(train$Neighborhood)
 levels(test$Condition1)<-levels(train$Condition1)
@@ -256,14 +250,15 @@ levels(test$Condition2)<-levels(train$Condition2)
 levels(test$HouseStyle)<-levels(train$HouseStyle)
 levels(test$BldgType)<-levels(train$BldgType)
 levels(test$Exterior1st)<-levels(train$Exterior1st)
+
 levels(test$RoofStyle)<-levels(train$RoofStyle)
 levels(test$RoofMatl)<-levels(train$RoofMatl)
 levels(test$MasVnrType)<-levels(train$MasVnrType)
 levels(test$Exterior2nd)<-levels(train$Exterior2nd)
 levels(test$Foundation)<-levels(train$Foundation)
-levels(test$ExterCond)<-levels(train$ExterCond)
 levels(test$ExterQual)<-levels(train$ExterQual)
 levels(test$BsmtExposure)<-levels(train$BsmtExposure)
+
 levels(test$BsmtCond)<-levels(train$BsmtCond)
 levels(test$BsmtQual)<-levels(train$BsmtQual)
 levels(test$BsmtFinType2)<-levels(train$BsmtFinType2)
@@ -273,6 +268,7 @@ levels(test$Heating)<-levels(train$Heating)
 levels(test$HeatingQC)<-levels(train$HeatingQC)
 levels(test$Electrical)<-levels(train$Electrical)
 levels(test$KitchenQual)<-levels(train$KitchenQual)
+
 levels(test$Functional)<-levels(train$Functional)
 levels(test$GarageType)<-levels(train$GarageType)
 levels(test$GarageFinish)<-levels(train$GarageFinish)
@@ -282,18 +278,15 @@ levels(test$PavedDrive)<-levels(train$PavedDrive)
 levels(test$SaleType)<-levels(train$SaleType)
 
 
-test=test %>% mutate_if(is.character, as.factor)
-```
+
+#Step 3
+Fit_Pred <- predict(Fit, newdata = test)
+print(Fit_Pred)
 
 
-##Step 3:
-
-```{r step3,include=FALSE}   
-#Fit_Pred <- predict(Fit, newdata = test)
-#print(Fit_Pred)
-
-#OlsRegression <-lm(SalePrice ~ .,  data = train)
-#OLS_Pred <- predict(OlsRegression, newdata = test)
+OlsRegression <-lm(SalePrice ~ .,  data = train)
+OLS_Pred <- predict(OlsRegression, newdata = test)
+print(OLS_Pred)
 ```
 There is a problem of level with the variable extercond, indeed its level is different between the 2 samples. In test there's additionnaly the level PO. Because this variable don't seems to be important we get rid of this problem by deleting this observation in the test sample.
 
