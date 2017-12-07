@@ -1,0 +1,530 @@
+# ChallengeB
+Challenge B of Fatoumata Barry &amp; Mathilde Dufouleur
+
+---
+title: "Challenge B"
+author: "Fatoumata Barry & Mathilde Dufouleur"
+date: "07/12/2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = FALSE)
+```
+
+## Task 1A - Predicting house prices in Ames, Iowa
+
+
+
+```{r housing-init, include=FALSE}
+load.libraries <- c('tidyverse')
+install.lib <- load.libraries[!load.libraries %in% installed.packages()]
+for(libs in install.lib) install.packages(libs, dependencies = TRUE)
+sapply(load.libraries, require, character = TRUE)
+
+# +0.25 if correctly load libraries - other ways OK as long as properly installed and loaded
+```
+
+```{r housing-step1-sol, include=FALSE, echo = TRUE}
+
+train <- read_csv(file = "data/raw-data/train.csv")
+test <- read_csv(file = "data/raw-data/test.csv")")
+
+
+
+# + 0.25: 1 data frame for train
+# + 0.25 1 data frame for test
+# + 0.25 if column names are be column names NOT the first row; 0 if anything else
+```
+
+
+```{r structure,include=FALSE}
+dim(train)
+# +0.5 if use dim(train)
+```
+
+
+
+```{r housing-step3-sol,include=FALSE, echo= TRUE}
+#either
+class(train$SalePrice)
+#or 
+train # only if train is in tidyverse, ie a tbl_df
+
+# +0.25
+```
+
+
+```{r housing-step5-sol, echo= TRUE,include=FALSE}
+summary(train) #that is the minimum required, gets +0.75
+```
+
+
+
+```{r housing-step6-sol, echo= TRUE}
+hist(train$YearBuilt)
+hist(train$LotArea)
+hist(train$`1stFlrSF`)
+
+# alternatively
+ggplot(train)
+
+# +0.25 on each plot (max 0.75)
+# +0.25 if mfrow
+
+par(mfrow = c(1,3))
+ggplot(train) + geom_histogram(mapping = aes(x = YearBuilt))
+ggplot(train) + geom_histogram(mapping = aes(x = LotArea))
+ggplot(train) + geom_histogram(mapping = aes(x = `1stFlrSF`))
+
+```
+
+
+
+```{r missing data, echo= TRUE,include=FALSE}
+head(train) # to check the first rows for missing data by eyeballing
+# +0.1
+
+train %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 0)
+# here i summarize the data set using the function sum(is.na()); is.na(.) gives me a column that is equal to TRUE when the row has a missing value (NA) or FALSE when it doesn't, so sum(is.na(.)) gives me the number of missing values for a column, then i gather the data to make it nicer, then i drop all the variables that do not have missing observations
+
+# +0.5 if some manipulation to compute the number of missing observations by column; if compute number of missing variables overall only +0.3
+```
+
+
+
+```{r missing data_plot,include=FALSE}
+
+plot_Missing <- function(data_in, title = NULL){
+  temp_df <- as.data.frame(ifelse(is.na(data_in), 0, 1))
+  temp_df <- temp_df[,order(colSums(temp_df))]
+  data_temp <- expand.grid(list(x = 1:nrow(temp_df), y = colnames(temp_df)))
+  data_temp$m <- as.vector(as.matrix(temp_df))
+  data_temp <- data.frame(x = unlist(data_temp$x), y = unlist(data_temp$y), m = unlist(data_temp$m))
+  ggplot(data_temp) + geom_tile(aes(x=x, y=y, fill=factor(m))) + scale_fill_manual(values=c("white", "black"), name="Missing\n(0=Yes, 1=No)") + theme_light() + ylab("") + xlab("") + ggtitle(title)
+}
+
+
+plot_Missing(train[,colSums(is.na(train)) > 0])
+```
+
+
+
+```{r missing data 2, echo= TRUE,include=FALSE}
+remove.vars <- train %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 100) %>% select(feature) %>% unlist
+
+train <- train %>% select(- one_of(remove.vars))
+
+# +0.2 for removing variables with a lot of missing values with some justification; 0 if no removal of variables, 0 if no justification whatsoever
+```
+
+
+
+```{r missing data 3, echo= TRUE,include=FALSE}
+
+train %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 0)
+
+train <- train %>% filter(is.na(GarageType) == FALSE, is.na(MasVnrType) == FALSE, is.na(BsmtFinType2) == FALSE, is.na(BsmtExposure) == FALSE, is.na(Electrical) == FALSE)
+# remove rows with NA in some of these variables, check if you take all missing values like this
+
+# make sure it's all clean : Yes
+train %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 0)
+
+# + 0.2 for removing observations with missing values
+```
+
+
+```{r housing-step8-sol,include=FALSE}
+
+# Check for duplicated rows.
+cat("The number of duplicated rows are", nrow(train) - nrow(unique(train)))
+
+```
+
+
+```{r housing-step9-sol, echo = TRUE,include=FALSE}
+#Convert character to factors 
+cat_var <- train %>% summarise_all(.funs = funs(is.character(.))) %>% gather(key = "feature", value = "is.chr") %>% filter(is.chr == TRUE) %>% select(feature) %>% unlist
+# cat_var is the vector of variable names that are stored as character
+
+train %>% mutate_at(.cols = cat_var, .funs = as.factor)
+# i transform them all to factors
+
+# +0.5 if done manually, 0.75 if done through some smarter way
+# +0.25 if commented
+```
+
+
+
+```{r housing-step10-sol, echo = TRUE,include=FALSE}
+lm_model_1 <- lm(SalePrice ~ ., data= train)
+summary(lm_model_1)
+
+# +0.25 for lm with all the features
+
+sum_lm_model_1 <- summary(lm_model_1)$coefficients #take only the table of coefficients and t stats and pvalues
+class(sum_lm_model_1) #is a matrix
+significant.vars <- row.names(sum_lm_model_1[sum_lm_model_1[,4] <= 0.01,]) #sum_lm_model_1[,4] is the p-value of each coefficient, here then i choose the variables that have coefficients significant at the 1% level
+
+# choose any selection of such variables and run a more parcimonious model
+lm_model_2 <- lm(SalePrice ~ MSZoning + LotArea + Neighborhood  + YearBuilt + OverallQual, data = train)
+summary(lm_model_2)
+
+# +0.5 for parsimonious model if R2 > 70% and no interaction terms
+
+# + 0.25 for text answer and justification
+```
+
+
+
+```{r housing-step11-sol, echo = TRUE,include=FALSE}
+
+prediction <- data.frame(Id = test$Id, SalePrice_predict = predict(lm_model_2, test, type="response"))
+write.csv(x = prediction, file = "predictions.csv", na = "NA", quote = FALSE, row.names = FALSE)
+
+```
+
+
+
+
+******
+
+
+```{r package & data without ID, include=FALSE}
+install.packages("randomForest")
+library(randomForest)
+train <- train[,-c(1,27)]
+
+which(colnames(train) == "3SsnPorch")
+which(colnames(train) == "2ndFlrSF")
+which(colnames(train) == "1stFlrSF")
+which(colnames(train) == "ExterCond")
+
+names(train)[40]<-"R1stFlrSF"
+names(train)[41]<-"R2ndFlrSF"
+names(train)[65]<-"R3SsnPorch"
+
+
+
+
+library(dplyr)
+train=train %>% mutate_if(is.character, as.factor)
+
+Fit <- randomForest(SalePrice ~ .,  data = train)
+print(Fit)
+```
+
+Random forest technique is a machin learning algorithm, which is efficient to find the relationship between dependent and independent variables. Random Forest classify independent variables according to their relationship with the dependent variable.
+
+
+##Step 2:
+
+```{r Step 2, include=FALSE}
+
+remove.vars <- test %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 100) %>% select(feature) %>% unlist
+
+test <- test %>% select(- one_of(remove.vars))
+
+
+
+
+test %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 0)
+
+test <- test %>% filter(is.na(GarageType) == FALSE, is.na(MasVnrType) == FALSE, is.na(BsmtFinType2) == FALSE, is.na(BsmtExposure) == FALSE, is.na(Electrical) == FALSE)
+
+test <- test[,-c(1,27)]
+
+which(colnames(test) == "3SsnPorch")
+which(colnames(test) == "2ndFlrSF")
+which(colnames(test) == "1stFlrSF")
+
+names(test)[65]<-"R3SsnPorch"
+names(test)[41]<-"R2ndFlrSF"
+names(test)[40]<-"R1stFlrSF"
+
+
+levels(test$MSZoning)<-levels(train$MSZoning)
+levels(test$Street)<-levels(train$Street)
+levels(test$LotShape)<-levels(train$LotShape)
+levels(test$LandContour)<-levels(train$LandContour)
+levels(test$LandSlope)<-levels(train$LandSlope)
+levels(test$LotConfig)<-levels(train$LotConfig)
+levels(test$Utilities)<-levels(train$Utilities)
+levels(test$Neighborhood)<-levels(train$Neighborhood)
+levels(test$Condition1)<-levels(train$Condition1)
+levels(test$Condition2)<-levels(train$Condition2)
+levels(test$HouseStyle)<-levels(train$HouseStyle)
+levels(test$BldgType)<-levels(train$BldgType)
+levels(test$Exterior1st)<-levels(train$Exterior1st)
+levels(test$RoofStyle)<-levels(train$RoofStyle)
+levels(test$RoofMatl)<-levels(train$RoofMatl)
+levels(test$MasVnrType)<-levels(train$MasVnrType)
+levels(test$Exterior2nd)<-levels(train$Exterior2nd)
+levels(test$Foundation)<-levels(train$Foundation)
+levels(test$ExterCond)<-levels(train$ExterCond)
+levels(test$ExterQual)<-levels(train$ExterQual)
+levels(test$BsmtExposure)<-levels(train$BsmtExposure)
+levels(test$BsmtCond)<-levels(train$BsmtCond)
+levels(test$BsmtQual)<-levels(train$BsmtQual)
+levels(test$BsmtFinType2)<-levels(train$BsmtFinType2)
+levels(test$BsmtFinType1)<-levels(train$BsmtFinType1)
+levels(test$CentralAir)<-levels(train$CentralAir)
+levels(test$Heating)<-levels(train$Heating)
+levels(test$HeatingQC)<-levels(train$HeatingQC)
+levels(test$Electrical)<-levels(train$Electrical)
+levels(test$KitchenQual)<-levels(train$KitchenQual)
+levels(test$Functional)<-levels(train$Functional)
+levels(test$GarageType)<-levels(train$GarageType)
+levels(test$GarageFinish)<-levels(train$GarageFinish)
+levels(test$GarageQual)<-levels(train$GarageQual)
+levels(test$GarageCond)<-levels(train$GarageCond)
+levels(test$PavedDrive)<-levels(train$PavedDrive)
+levels(test$SaleType)<-levels(train$SaleType)
+
+
+test=test %>% mutate_if(is.character, as.factor)
+```
+
+
+##Step 3:
+
+```{r step3,include=FALSE}   
+#Fit_Pred <- predict(Fit, newdata = test)
+#print(Fit_Pred)
+
+#OlsRegression <-lm(SalePrice ~ .,  data = train)
+#OLS_Pred <- predict(OlsRegression, newdata = test)
+```
+There is a problem of level with the variable extercond, indeed its level is different between the 2 samples. In test there's additionnaly the level PO. Because this variable don't seems to be important we get rid of this problem by deleting this observation in the test sample.
+
+
+
+
+#Task 2:
+
+
+```{r Challenge A, include=FALSE}
+# Simulating an overfit
+library(tidyverse)
+library(np)
+library(caret)
+# True model : y = x^3 + epsilon
+set.seed(1)
+Nsim <- 150
+b <- c(0,1)
+x0 <- rep(1, Nsim)
+x1 <- rnorm(n = Nsim)
+
+X <- cbind(x0, x1^3)
+y.true <- X %*% b
+
+eps <- rnorm(n = Nsim)
+y <- X %*% b + eps
+
+df <- tbl_df(y[,1]) %>% rename(y = value) %>% bind_cols(tbl_df(x1)) %>% rename(x = value) %>% bind_cols(tbl_df(y.true[,1])) %>% rename(y.true = value)
+
+# Split sample into training and testing, 80/20
+training.index <- createDataPartition(y = y, times = 1, p = 0.8)
+df <- df %>% mutate(which.data = ifelse(1:n() %in% training.index$Resample1, "training", "test"))
+
+training <- df %>% filter(which.data == "training")
+test <- df %>% filter(which.data == "test")
+
+# Train linear model y ~ x on training
+lm.fit <- lm(y ~ x, data = training)
+summary(lm.fit)
+
+df <- df %>% mutate(y.lm = predict(object = lm.fit, newdata = df))
+training <- training %>% mutate(y.lm = predict(object = lm.fit))
+```
+
+#Step 1:
+
+```{r Step 1, include=FALSE}
+#Kernel regression on the training table, with a bandwidth of 0.5
+ll.fit.lowflex <- npreg(y ~ x, data = training, method = "ll", bws = 0.5)
+```
+
+```{r Step 2, include=FALSE}
+#Kernel regression on the training table, with a bandwidth of 0.01 
+ll.fit.highflex <- npreg(y ~ x, data = training, method = "ll", bws = 0.01)
+```
+
+#Step 3
+
+```{r Step 3, include=FALSE}
+#Transformation of the training data in order to plot the predictions of both regression
+df <- df %>% mutate(y.ll.lowflex = predict(object = ll.fit.lowflex, newdata = df), y.ll.highflex = predict(object = ll.fit.highflex, newdata = df))
+training <- training %>% mutate(y.ll.lowflex = predict(object = ll.fit.lowflex, newdata = training), y.ll.highflex = predict(object = ll.fit.highflex, newdata = training))
+
+#Predictions of ll.fit.lowflexi and ll.fit.highflexi on the training data
+ggplot(training) + geom_point(mapping = aes(x = x, y = y)) + 
+  geom_line(mapping = aes(x = x, y = y.true)) + 
+  geom_line(mapping = aes(x = x, y = y.ll.lowflex), color = "red") + 
+  geom_line(mapping = aes(x = x, y = y.ll.highflex), color = "blue")
+```
+
+#Step 4
+
+The high flexibility local linear model is the model which predictions are the more variable. 
+The predictions which have the least biais are the low flexibility local linear model predictions. Even if ll.fit.highflexi contains all training observations, we prefer to use ll.fit.lowd=flexi with which observations (of all the data) have more chance to be close to the predictions of the low flexibility model.
+
+#Step 5
+
+```{r Step 5,include=FALSE}
+# Regressions on the test data
+ll.fit.lowflexi2 <- npreg(y ~ x, data = test, method = "ll", bws = 0.5)
+
+ll.fit.highflexi2 <- npreg(y ~ x, data = test, method = "ll", bws = 0.01)
+
+#Transformation of the testing data in order to plot the predictions of both regression
+test <- test %>% mutate(ll.fit.lowflex2= predict(object = ll.fit.lowflexi2, newdata = test), ll.fit.highflex2 = predict(object = ll.fit.highflexi2, newdata = test))
+
+#Predictions of ll.fit.lowflexi2 and ll.fit.highflexi2 on the testing data
+ggplot(test) + geom_point(mapping = aes(x = x, y = y)) +
+  geom_line(mapping = aes(x = x, y = ll.fit.lowflex2), color = "red") + 
+  geom_line(mapping = aes(x = x, y = ll.fit.highflex2), color = "blue")
+```
+
+We have the same comment.The high flexibility local linear model is the model which predictions are the more variable. 
+The predictions which have the least biais are the low flexibility local linear model predictions.
+
+#Step 6:
+
+```{r Step 6,include=FALSE}
+# Create vector of several bandwidth
+bw <- seq(0.01, 0.5, by = 0.001)
+```
+
+#Step 7
+
+```{r Step 7, include=FALSE}
+#Kernel regression on the training data with each bandwidth
+#We apply the same function npreg over the vector of bandwidth
+llbw.fit <- lapply(X = bw, FUN = function(bw) {npreg(y ~ x, data = training, method = "ll", bws = bw)})
+```
+
+#Step 8
+
+```{r step 8,include=FALSE}
+#MSE on the training set for each bandwidth
+#Creation of a function which computes adds the mse on the training set
+mse.training <- function(fit.model){
+  predictions <- predict(object = fit.model, newdata = training)
+  training %>% mutate(squared.error = (y - predictions)^2) %>% summarize(mse = mean(squared.error))
+}
+#unlist for simplify 
+#We apply the previous function over the regressions with each bandwidth on the trainig set
+mse.train.results <- unlist(lapply(X = llbw.fit, FUN = mse.training))
+```
+
+#Step 9
+
+```{r step 9,include=FALSE}
+#MSE on the testing set for each bandwidth
+#We do the same as above
+mse.test <- function(fit.model){
+  predictions <- predict(object = fit.model, newdata = test)
+  test %>% mutate(squared.error = (y - predictions)^2) %>% summarize(mse = mean(squared.error))
+}
+mse.test.results <- unlist(lapply(X = llbw.fit, FUN = mse.test))
+```
+
+#Step 10
+
+```{r step 10,include=FALSE}
+# Creation of the table of the previous functions 
+mse.df <- tbl_df(data.frame(bandwidth = bw, mse.train = mse.train.results, mse.test = mse.test.results))
+
+# Plotting the previous functions 
+ggplot(mse.df) + 
+  geom_line(mapping = aes(x = bandwidth, y = mse.train), color = "blue") +
+  geom_line(mapping = aes(x = bandwidth, y = mse.test), color = "orange")
+```
+
+The error rate of the local linear regression on the training set increases with the bandwidth. Then, higher is the bandwidth, less good are the predictions of this model (there is more errors). But we do not want the smallest MSE of the trainig set, because it would mean that the model learns to much the observations of the training data. In other words, the model learns the "exceptions of the data" and it has no the ability to generalize.
+
+We can see that the error rate of the local linear regression on the testing set is a convex function. So, the MSE decreases then increases with the bandwidth. Then, there is a bandwidwth from which the MSE increases, from which the model makes less good predictions. It means that the model is too based on the training set.
+
+Thus we have to find a bandwidth such that the MSE of the training set is low enough and the MSE of the testing set is high enough. 
+
+#TASK 3 :
+
+We need 10 min to run this task.
+
+##STEP 1 :
+```{r step 1, include=FALSE}
+library(data.table)
+CNIL <- fread(file = "C:/Users/Invite/Documents/rprog/rprog2017-ps4/OpenCNIL.csv", sep = ";")
+```
+
+
+##Step 2 : 
+
+From the third line of the tab we have the number of organizations that has nominated a CNIL per department. With the corresponding numbers in the last column.
+```{r step 2, include=FALSE}
+CNIL$Code_Postal <- substr(CNIL$Code_Postal,0,2)
+install.packages("plyr")
+library(plyr)
+x <- count(CNIL, "Code_Postal")
+table <- x[-c(1,2),]
+```
+
+
+##Step 3 : 
+
+Because the data were to large for my computer, it litteraly bug my ordinateur, i have imported 1 000 000 of observations. They are in datachunk and datachunk0. I will then continue to work only on 500 000 observations from the SIREN data.
+I keep all the observations contained in the CNIL data. I merge the 2 tables, by using the number of siren as indicator.
+```{r step 3 - import , include=FALSE}
+
+
+SIREN <- 'C:/Users/Invite/Documents/rprog/rprog2017-ps4/CNILdata.csv'
+index <- 0
+chunkSize <- 500000
+con<-file(description = SIREN,open="r")
+dataChunk <- read.table(con, nrows = chunkSize, header = T,fill=TRUE, sep =";")
+actualColumnNames <- names(dataChunk)
+repeat {
+  index<- index + 1
+  print(paste('Processing rows:', index*chunkSize))
+  
+  if (nrow(dataChunk)!= chunkSize){
+    print('Processed all files!')
+    break}
+dataChunk0 <- read.table(con,nrows = chunkSize,skip=0,header = FALSE,fill=TRUE,sep = ";",col.names = actualColumnNames)
+break
+  }
+close(con)
+
+
+
+```
+
+
+```{r step 3 -  SIREN sans duplicated kept only the updated, include=FALSE}
+dataChunk2 <- unique(setDT(dataChunk)[order(SIREN, -DATEMAJ)], by = "SIREN")
+
+```
+
+```{r step 3 - Merging $ ordering by siren in the new file, include=FALSE}
+
+names(CNIL)[1] <- "SIREN"
+Merging = merge(CNIL,dataChunk2)
+
+FinalFile <- unique(setDT(Merging)[order(SIREN)], by = "SIREN")
+```
+
+##Step 4 : 
+
+There are inegalities, because of the size of firms. 
+
+```{r step 4 , include=TRUE}
+install.packages("tidyverse")
+library(tidyverse)
+attach(FinalFile)
+LIBTEFEN <- as.numeric(LIBTEFEN)
+SIREN <- as.numeric(SIREN)
+
+ggplot(data = FinalFile) +
+  geom_bar(mapping = aes(x = LIBTEFEN))
+```
